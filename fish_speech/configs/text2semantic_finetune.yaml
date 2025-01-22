@@ -11,7 +11,7 @@ trainer:
   accumulate_grad_batches: 1
   gradient_clip_val: 1.0
   gradient_clip_algorithm: "norm"
-  max_steps: 10000
+  max_steps: 100000
   precision: bf16-true
   limit_val_batches: 10
   val_check_interval: 100
@@ -49,7 +49,7 @@ data:
   _target_: fish_speech.datasets.semantic.SemanticDataModule
   train_dataset: ${train_dataset}
   val_dataset: ${val_dataset}
-  num_workers: 4
+  num_workers: 24
   batch_size: 4
   tokenizer: ${tokenizer}
   max_length: ${max_length}

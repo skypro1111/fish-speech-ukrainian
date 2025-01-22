@@ -12,8 +12,9 @@ from tools.inference_engine import TTSInferenceEngine
 from tools.llama.generate import launch_thread_safe_queue
 from tools.schema import ServeTTSRequest
 from tools.vqgan.inference import load_model as load_decoder_model
-from tools.webui import build_app
-from tools.webui.inference import get_inference_wrapper
+from tools.webui_ukrainian import build_app
+from tools.webui_ukrainian.inference import get_inference_wrapper
+from tools.webui_ukrainian.references import scan_references
 
 # Make einx happy
 os.environ["EINX_FILTER_TRACEBACK"] = "false"
@@ -39,11 +40,22 @@ def parse_args():
 
     return parser.parse_args()
 
-
 if __name__ == "__main__":
     args = parse_args()
     args.precision = torch.half if args.half else torch.bfloat16
 
+    # Get project root directory
+    project_root = Path(__file__).parent.parent
+    references_dir = project_root / "references"
+    
+    # Scan references directory
+    logger.info(f"Project root: {project_root}")
+    logger.info(f"Looking for references in: {references_dir}")
+    references = scan_references(references_dir)
+    
+    if not references:
+        logger.warning("No references found! Interface will have empty reference selection.")
+    
     # Check if MPS or CUDA is available
     if torch.backends.mps.is_available():
         args.device = "mps"
@@ -51,7 +63,14 @@ if __name__ == "__main__":
     elif not torch.cuda.is_available():
         logger.info("CUDA is not available, running on CPU.")
         args.device = "cpu"
-    args.device = torch.device("cuda:0")
+    
+    # Змінимо на створення device через torch
+    args.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+    logger.info(f"Using device: {args.device}")
+    
+    # Очистимо кеш GPU перед завантаженням моделей
+    if torch.cuda.is_available():
+        torch.cuda.empty_cache()
     
     logger.info("Loading Llama model...")
     llama_queue = launch_thread_safe_queue(
@@ -70,7 +89,6 @@ if __name__ == "__main__":
 
     logger.info("Decoder model loaded, warming up...")
 
-    # Create the inference engine
     inference_engine = TTSInferenceEngine(
         llama_queue=llama_queue,
         decoder_model=decoder_model,
@@ -78,11 +96,14 @@ if __name__ == "__main__":
         precision=args.precision,
     )
 
-    # Dry run to check if the model is loaded correctly and avoid the first-time latency
+    # Додамо перевірку, де знаходиться модель
+    logger.info(f"Checking model device - Decoder: {next(decoder_model.parameters()).device}")
+
+    # Dry run
     list(
         inference_engine.inference(
             ServeTTSRequest(
-                text="Hello world.",
+                text="Перевірка.",
                 references=[],
                 reference_id=None,
                 max_new_tokens=1024,
@@ -95,10 +116,9 @@ if __name__ == "__main__":
         )
     )
 
-    logger.info("Warming up done, launching the web UI...")
+    logger.info("Warming up done, launching the Ukrainian web UI...")
 
-    # Get the inference function with the immutable arguments
-    inference_fct = get_inference_wrapper(inference_engine)
+    inference_fct = get_inference_wrapper(inference_engine, references)
 
-    app = build_app(inference_fct, args.theme)
-    app.launch(show_api=True, server_name='0.0.0.0')
+    app = build_app(inference_fct, args.theme, references)
+    app.launch(show_api=True, server_name='0.0.0.0') 

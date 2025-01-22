@@ -279,7 +279,8 @@ def decode_one_token_ar(
         layer.attention.kv_cache.k_cache.fill_(0)
         layer.attention.kv_cache.v_cache.fill_(0)
 
-    input_pos = torch.tensor([0], device=hidden_states.device, dtype=torch.long)
+    input_pos = torch.tensor([0], device=hidden_states.device, dtype=torch.long).clone()
+
     model.forward_generate_fast(hidden_states, input_pos)
     a = codebooks[0] - model.tokenizer.semantic_begin_id
     a[a < 0] = 0
@@ -674,22 +675,25 @@ def encode_tokens(
 
 
 def load_model(checkpoint_path, device, precision, compile=False, is_agent=False):
+    # Спочатку створюємо модель на CPU
     model: Union[NaiveTransformer, DualARTransformer] = BaseTransformer.from_pretrained(
         checkpoint_path, load_weights=True, is_agent=is_agent
     )
 
-    model = model.to(device=device, dtype=precision)
+    # Переміщуємо модель на GPU перед встановленням precision
+    model = model.to(device)
+    # Встановлюємо precision після переміщення на GPU
+    model = model.to(dtype=precision)
+    
+    logger.info(f"Model device: {next(model.parameters()).device}")
+    logger.info(f"Model dtype: {next(model.parameters()).dtype}")
     logger.info(f"Restored model from checkpoint")
 
     if isinstance(model, DualARTransformer):
-        decode_one_token = (
-            decode_one_token_ar_agent if is_agent else decode_one_token_ar
-        )
+        decode_one_token = decode_one_token_ar_agent if is_agent else decode_one_token_ar
         logger.info("Using DualARTransformer")
     else:
-        decode_one_token = (
-            decode_one_token_naive_agent if is_agent else decode_one_token_naive
-        )
+        decode_one_token = decode_one_token_naive_agent if is_agent else decode_one_token_naive
         logger.info("Using NaiveTransformer")
 
     if compile:
