@@ -180,14 +180,14 @@ pip install -r requirements.txt
 pip install huggingface-cli
 
 # Download the model
-huggingface-cli download fishaudio/fish-speech-1.5-ukrainian --local-dir checkpoints/fish-speech-1.5-ukrainian
+huggingface-cli download skypro1111/fish-speech-1.5-ukrainian --local-dir checkpoints/fish-speech-1.5-ukrainian
 ```
 
 ## Running Web Interface
 ```bash
 python tools/run_webui_ukrainian.py \
     --llama-checkpoint-path checkpoints/fish-speech-1.5-ukrainian \
-    --decoder-checkpoint-path checkpoints/fish-speech-1.5/firefly-gan-vq-fsq-8x1024-21hz-generator.pth \
+    --decoder-checkpoint-path checkpoints/fish-speech-1.5-ukrainian/firefly-gan-vq-fsq-8x1024-21hz-generator.pth \
     --compile
 ```
 
